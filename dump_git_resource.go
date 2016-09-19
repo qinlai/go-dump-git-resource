@@ -121,7 +121,9 @@ func doBase(fromDir string, toDir string, indexFile string, lines []string) {
 			path, file := getFileInfo(fullName)
 			from := fmt.Sprintf("%s/%s", fromDir, fullName)
 			to := fmt.Sprintf("%s/%s/%s", toDir, dirs[path], file)
-			exec.Command("cp", "-u", from, to).Run()
+			if e = exec.Command("cp", "-u", from, to).Run(); e != nil {
+				panic(e)
+			}
 
 			hsd1, _ := hex.DecodeString(fmt.Sprintf("%x", sha1.Sum([]byte(path)))[:10])
 			hsd2, _ := hex.DecodeString(dirs[path])
@@ -165,7 +167,9 @@ func doDiff(fromDir string, toDir string, diffFile string, lines []string) {
 
 		to := fmt.Sprintf("%s/%s", diffDir, file)
 
-		exec.Command("cp", "-u", fromFile, to).Run()
+		if e = exec.Command("cp", "-u", fromFile, to).Run(); e != nil {
+			panic(e)
+		}
 
 		hsd1, _ := hex.DecodeString(fmt.Sprintf("%x", sha1.Sum([]byte(fullFile)))[:10])
 		hsd2, _ := hex.DecodeString(path)
@@ -250,8 +254,13 @@ func isDir(dir string) bool {
 		return false
 	}
 
-	fi, _ := f.Stat()
+	fi, e := f.Stat()
 
+	if e != nil {
+		panic(e)
+	}
+
+	f.Close()
 	return fi.IsDir()
 }
 
