@@ -88,8 +88,11 @@ func getGitData(uri string) map[string]string {
 }
 
 func getFile(uri string) ([]byte, error) {
-	if strings.Index(uri, "http") > 0 {
+	println(uri)
+	println(strings.Index(uri, "http"))
+	if strings.Index(uri, "http") > -1 {
 		u, _ := url.Parse(uri)
+		println("uri:", uri)
 		res, _ := http.Get(u.String())
 		return ioutil.ReadAll(res.Body)
 	}

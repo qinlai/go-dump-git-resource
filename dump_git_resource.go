@@ -237,10 +237,11 @@ func check() {
 }
 
 func isFileExists(file string) bool {
-	if _, e := os.Open(file); e != nil {
+	f, e := os.Open(file)
+	if e != nil {
 		return false
 	}
-
+	f.Close()
 	return true
 }
 
