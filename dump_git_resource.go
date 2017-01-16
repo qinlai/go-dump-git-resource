@@ -126,6 +126,9 @@ func doBase(fromDir string, toDir string, indexFile string, lines []string) {
 			hsd1, _ := hex.DecodeString(fmt.Sprintf("%x", sha1.Sum([]byte(path)))[:10])
 			hsd2, _ := hex.DecodeString(dirs[path])
 
+			if len(hsd2) == 0 {
+				continue
+			}
 			f.Write(hsd1)
 			f.Write(hsd2)
 		}
@@ -169,6 +172,10 @@ func doDiff(fromDir string, toDir string, diffFile string, lines []string) {
 
 		hsd1, _ := hex.DecodeString(fmt.Sprintf("%x", sha1.Sum([]byte(fullFile)))[:10])
 		hsd2, _ := hex.DecodeString(path)
+
+		if len(hsd2) == 0 {
+			continue
+		}
 
 		f.Write(hsd1)
 		f.Write(hsd2)
