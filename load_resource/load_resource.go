@@ -37,8 +37,8 @@ func NewLoader(uri, baseTag, endTag string) (l *Loader, e1 error) {
 
 	l = &Loader{
 		uri:   uri,
-		index: getGitData(fmt.Sprintf("%s/index/%s", uri, baseTag)),
-		diff:  getGitData(fmt.Sprintf("%s/diff/%s..%s", uri, baseTag, endTag)),
+		index: getGitData(fmt.Sprintf("%sindex/%s", uri, baseTag)),
+		diff:  getGitData(fmt.Sprintf("%sdiff/%s..%s", uri, baseTag, endTag)),
 	}
 
 	return
@@ -102,7 +102,12 @@ func getFile(uri string) ([]byte, error) {
 
 func formatGitData(s string) map[string]string {
 	n := 50
+
 	result := make(map[string]string)
+	if len(s) < n {
+		return result
+	}
+
 	i := 0
 	l := len(s)
 	start := 0
