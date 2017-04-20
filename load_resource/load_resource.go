@@ -57,16 +57,18 @@ func (l *Loader) LoadData(file string) (contents []byte, e error) {
 	} else {
 		f = fmt.Sprintf("%x", sha1.Sum([]byte(dirName)))[0:10]
 
+		var uri string
 		if dir, ok = l.index[f]; ok {
-			uri := l.uri + "tree/" + dir + "/" + fileName
-			if l.IsDebug {
-				println("load: ", uri)
-			}
-
-			contents, e = getFile(uri)
+			uri = l.uri + "tree/" + dir + "/" + fileName
 		} else {
-			e = fmt.Errorf("no such file or directory: %s", file)
+			uri = l.uri + "tree/" + fileName
 		}
+
+		if l.IsDebug {
+			println("load: ", uri)
+		}
+
+		contents, e = getFile(uri)
 	}
 
 	return
