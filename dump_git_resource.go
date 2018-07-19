@@ -1,20 +1,24 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
+	"math"
 )
 
-var gGitDir, gTargetDir string
+var gBranch, gGitDir, gTargetDir string
 var gProject, gBaseTag, gEndTag string
-var gIsPull bool
+var gIsPull, gIsOpenLog bool
 var gProjectDir string
+var gFilePathReg *regexp.Regexp
 
 const (
 	TREE                string = "tree"
@@ -32,6 +36,8 @@ func init() {
 	flag.StringVar(&gBaseTag, "base_tag", "", "base git tag name(request)")
 	flag.StringVar(&gEndTag, "end_tag", "", "end git tag name")
 	flag.BoolVar(&gIsPull, "is_pull", false, "is need pull before dump?")
+	flag.StringVar(&gBranch, "branch", "master", "git branch")
+	flag.BoolVar(&gIsOpenLog, "is_openlog", true, "print log?")
 }
 
 func main() {
@@ -41,6 +47,13 @@ func main() {
 			fmt.Println(e)
 		}
 	}()
+
+	var err error
+	gFilePathReg, err = regexp.Compile(" ")
+	if err != nil {
+		panic(err.Error())
+	}
+
 	do()
 }
 
@@ -64,8 +77,20 @@ func do() {
 	}
 
 	if gIsPull {
+		gitCheckout(gProjectDir, gBranch)
 		gitPull(gProjectDir)
+		if len(gBaseTag) > 0 && len(gEndTag) > 0 {
+			gitCheckout(gProjectDir, gEndTag)
+		} else {
+			gitCheckout(gProjectDir, gBaseTag)
+		}
 	}
+
+	doBase(
+		gProjectDir,
+		fmt.Sprintf("%s/%s", gTargetDir, TREE_DIR_NAME),
+		fmt.Sprintf("%s/%s", indexDir, gBaseTag),
+		getGitInfo(gProjectDir, []string{"ls-tree", "-r", "-t", gBaseTag}))
 
 	if len(gEndTag) > 0 {
 		doDiff(
@@ -73,18 +98,13 @@ func do() {
 			fmt.Sprintf("%s/%s", gTargetDir, FILE_DIR_NAME),
 			fmt.Sprintf("%s/%s..%s", diffDir, gBaseTag, gEndTag),
 			getGitInfo(gProjectDir, []string{"diff-tree", "-r", "-t", fmt.Sprintf("%s..%s", gBaseTag, gEndTag)}))
-	} else {
-		doBase(
-			gProjectDir,
-			fmt.Sprintf("%s/%s", gTargetDir, TREE_DIR_NAME),
-			fmt.Sprintf("%s/%s", indexDir, gBaseTag),
-			getGitInfo(gProjectDir, []string{"ls-tree", "-r", "-t", gBaseTag}))
 	}
 
 	println("completed")
 }
 
 func doBase(fromDir string, toDir string, indexFile string, lines []string) {
+	printLog("dump base")
 	if !isFileExists(toDir) {
 		os.Mkdir(toDir, os.ModePerm)
 	}
@@ -102,15 +122,15 @@ func doBase(fromDir string, toDir string, indexFile string, lines []string) {
 	}
 
 	for _, line := range lines {
-		info := reg.FindAll([]byte(line), 4)
+		info := reg.FindAll([]byte(line), math.MaxInt32)
 		if len(info) < 4 {
 			continue
 		}
 
 		t := string(info[1])
 		sha := string(info[2])
-		fullName := string(info[3])
-
+		fullName := string(bytes.Join(info[3:], []byte(" ")))
+		
 		if t == TREE {
 			dirs[fullName] = sha
 			treeDir := fmt.Sprintf("%s/%s", toDir, dirs[fullName])
@@ -133,9 +153,12 @@ func doBase(fromDir string, toDir string, indexFile string, lines []string) {
 			f.Write(hsd2)
 		}
 	}
+	printLog("dump base completed")
 }
 
 func doDiff(fromDir string, toDir string, diffFile string, lines []string) {
+	printLog("dump diff")
+
 	if !isFileExists(toDir) {
 		os.Mkdir(toDir, os.ModePerm)
 	}
@@ -147,12 +170,12 @@ func doDiff(fromDir string, toDir string, diffFile string, lines []string) {
 
 	for _, line := range lines {
 		arr := strings.Split(line, " ")
-		if len(arr) != 5 {
+		if len(arr) < 5 {
 			continue
 		}
 
 		path := arr[3]
-		fileArr := strings.Split(arr[4], "\t")
+		fileArr := strings.Split(strings.Join(arr[5:], " "), "\t")
 		fullFile := fileArr[len(fileArr)-1]
 		_, file := getFileInfo(fullFile)
 
@@ -180,9 +203,12 @@ func doDiff(fromDir string, toDir string, diffFile string, lines []string) {
 		f.Write(hsd1)
 		f.Write(hsd2)
 	}
+
+	printLog("dump diff completed.")
 }
 
 func gitPull(gitDir string) {
+	printLog("git pull")
 	shell, e := exec.LookPath("git")
 	if e != nil {
 		panic(e)
@@ -198,7 +224,26 @@ func gitPull(gitDir string) {
 	}
 }
 
+func gitCheckout(gitDir, tag string) {
+	printLog("git checkout %s", tag)
+	shell, e := exec.LookPath("git")
+	if e != nil {
+		panic(e)
+	}
+
+	cmd := new(exec.Cmd)
+	cmd.Dir = gitDir
+	cmd.Path = shell
+	cmd.Args = append([]string{"git", "checkout", tag})
+
+	if e := cmd.Run(); e != nil {
+		panic(e)
+	}
+	printLog("git checkout completed")
+}
+
 func getGitInfo(cmdDir string, args []string) []string {
+	printLog("get git info %#v", args)
 	shell, e := exec.LookPath("git")
 	if e != nil {
 		panic(e)
@@ -214,6 +259,7 @@ func getGitInfo(cmdDir string, args []string) []string {
 		panic(e)
 	}
 
+	printLog("get git info completed")
 	return strings.Split(string(r), "\n")
 }
 
@@ -269,11 +315,8 @@ func isDir(dir string) bool {
 }
 
 func getFileInfo(file string) (dir, fileName string) {
-
 	arr := strings.Split(file, "/")
-
 	l := len(arr)
-
 	return strings.Join(arr[0:l-1], "/"), strings.Join(arr[l-1:l], "")
 }
 
@@ -281,7 +324,15 @@ func cp(from, to string) {
 	_, err := os.Stat(to)
 	if err != nil && !os.IsExist(err) {
 		if e := exec.Command("cp", "-u", from, to).Run(); e != nil {
-			panic(e)
+			printLog("cp error %s=>%s=>%s", from, to, e.Error())
+			panic(e.Error())
 		}
+		printLog("cp %s=>%s", from, to)
+	}
+}
+
+func printLog(format string, a ...interface{}) {
+	if gIsOpenLog {
+		log.Printf(format+"\n", a...)
 	}
 }
