@@ -7,11 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
-	"math"
 )
 
 var gBranch, gGitDir, gTargetDir string
@@ -130,7 +130,7 @@ func doBase(fromDir string, toDir string, indexFile string, lines []string) {
 		t := string(info[1])
 		sha := string(info[2])
 		fullName := string(bytes.Join(info[3:], []byte(" ")))
-		
+
 		if t == TREE {
 			dirs[fullName] = sha
 			treeDir := fmt.Sprintf("%s/%s", toDir, dirs[fullName])
@@ -175,7 +175,7 @@ func doDiff(fromDir string, toDir string, diffFile string, lines []string) {
 		}
 
 		path := arr[3]
-		fileArr := strings.Split(strings.Join(arr[5:], " "), "\t")
+		fileArr := strings.Split(strings.Join(arr[4:], " "), "\t")
 		fullFile := fileArr[len(fileArr)-1]
 		_, file := getFileInfo(fullFile)
 
