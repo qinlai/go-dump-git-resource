@@ -77,14 +77,9 @@ func do() {
 	}
 
 	if gIsPull {
-		gitCheckout(gProjectDir, gBranch)
 		gitPull(gProjectDir)
-		if len(gBaseTag) > 0 && len(gEndTag) > 0 {
-			gitCheckout(gProjectDir, gEndTag)
-		} else {
-			gitCheckout(gProjectDir, gBaseTag)
-		}
 	}
+	gitCheckout(gProjectDir, gBranch)
 
 	doBase(
 		gProjectDir,
