@@ -19,6 +19,7 @@ var gProject, gBaseTag, gEndTag string
 var gIsPull, gIsOpenLog bool
 var gProjectDir string
 var gFilePathReg *regexp.Regexp
+var gForceCopy bool
 
 const (
 	TREE                string = "tree"
@@ -38,6 +39,7 @@ func init() {
 	flag.BoolVar(&gIsPull, "is_pull", false, "is need pull before dump?")
 	flag.StringVar(&gBranch, "branch", "master", "git branch")
 	flag.BoolVar(&gIsOpenLog, "is_openlog", true, "print log?")
+	flag.BoolVar(&gForceCopy, "force_copy", false, "force copy file")
 }
 
 func main() {
@@ -76,10 +78,11 @@ func do() {
 		os.Mkdir(diffDir, os.ModePerm)
 	}
 
+	gitCheckout(gProjectDir, gBranch)
 	if gIsPull {
 		gitPull(gProjectDir)
 	}
-	gitCheckout(gProjectDir, gBranch)
+	gitCheckout(gProjectDir, gBaseTag)
 
 	doBase(
 		gProjectDir,
@@ -88,6 +91,7 @@ func do() {
 		getGitInfo(gProjectDir, []string{"ls-tree", "-r", "-t", gBaseTag}))
 
 	if len(gEndTag) > 0 {
+		gitCheckout(gProjectDir, gEndTag)
 		doDiff(
 			gProjectDir,
 			fmt.Sprintf("%s/%s", gTargetDir, FILE_DIR_NAME),
@@ -317,7 +321,7 @@ func getFileInfo(file string) (dir, fileName string) {
 
 func cp(from, to string) {
 	_, err := os.Stat(to)
-	if err != nil && !os.IsExist(err) {
+	if gForceCopy || (err != nil && !os.IsExist(err)) {
 		if e := exec.Command("cp", "-u", from, to).Run(); e != nil {
 			printLog("cp error %s=>%s=>%s", from, to, e.Error())
 			panic(e.Error())
